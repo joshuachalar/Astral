@@ -324,6 +324,11 @@ arch_syscall_entry:
 	mov rdi, rsp
 	add rdi, 8 ; context pointer is after r9 argument
 
+	; save the syscall number and rdx, which are overwritten on return,
+	; so the syscall can be restarted if a signal interrupts it
+	extern signal_syscall_entry
+	call signal_syscall_entry ; compiled with __attribute__((no_caller_saved_registers))
+
 	cmp rax, syscallcount
 	jae .nosyscall
 	call [syscalltab + rax * 8]

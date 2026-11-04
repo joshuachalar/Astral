@@ -61,6 +61,10 @@ typedef struct thread_t {
 		sigset_t returnmask; // for signal_returnmask
 		bool hasreturnmask;
 		bool stopped;
+		// registers of the current system call that get overwritten by its
+		// return value and errno, kept so it can be restarted (SA_RESTART)
+		uint64_t syscallnumber;
+		uint64_t syscallarg2;
 	} signals;
 	struct {
 		int interactivity_score;
