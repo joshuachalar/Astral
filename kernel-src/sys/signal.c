@@ -434,6 +434,15 @@ __attribute__((no_sanitize("undefined"))) static inline void set_siginfo_ucontex
 		CTX_ARG2(context) = (uint64_t)ARCH_SIGFRAME_GET_UCONTEXT_POINTER((sigframe_t *)stack);
 }
 
+// called on system call entry, before the system call runs. the return path
+// overwrites the syscall number and one of the arguments with the return value
+// and errno, so they are saved here in case the call needs to be restarted.
+__attribute__((no_caller_saved_registers)) void signal_syscall_entry(context_t *context) {
+	thread_t *thread = current_thread();
+	thread->signals.syscallnumber = CTX_SYSCALL_NUMBER(context);
+	thread->signals.syscallarg2 = CTX_ARG2(context);
+}
+
 // returns true if should retry check
 bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uint64_t syscallret, uint64_t syscallerrno, bool *need_context_switch) {
 	bool retry = false;
@@ -551,7 +560,13 @@ bool signal_check(struct thread_t *thread, context_t *context, bool syscall, uin
 		if (syscall) {
 			CTX_ERRNO(context) = syscallerrno;
 			CTX_RET(context) = syscallret;
-			// TODO restartable system call stuff goes here
+
+			// if the system call was interrupted before doing any work and the handler
+			// asked for it, make sigreturn() go back to the syscall instruction
+			// so it runs again instead of failing with EINTR
+			if (syscallerrno == EINTR && (action->flags & SA_RESTART) && arch_signal_syscall_restartable(thread->signals.syscallnumber)) {
+				ARCH_SIGNAL_RESTART_SYSCALL(context, thread->signals.syscallnumber, thread->signals.syscallarg2);
+			}
 		}
 
 		// configure stack frame

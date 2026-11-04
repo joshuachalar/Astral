@@ -7,6 +7,54 @@
 #define ARCH_SIGNAL_REDZONE_SIZE 128
 #define ARCH_SIGNAL_SYSCALL_INSTRUCTION_SIZE 2
 
+// system calls which get transparently restarted when interrupted by a signal
+// whose handler was installed with SA_RESTART. numbers match the order of
+// syscalltab in arch/x86-64/syscall.asm.
+// calls such as pause, sigsuspend, poll, ppoll, nanosleep and sigtimedwait
+// must always fail with EINTR, so they are deliberately not in this list.
+#define ARCH_SYSCALL_OPENAT 2
+#define ARCH_SYSCALL_READ 3
+#define ARCH_SYSCALL_WRITE 7
+#define ARCH_SYSCALL_WAITPID 14
+#define ARCH_SYSCALL_IOCTL 26
+#define ARCH_SYSCALL_SENDMSG 43
+#define ARCH_SYSCALL_RECVMSG 45
+#define ARCH_SYSCALL_ACCEPT 48
+#define ARCH_SYSCALL_PREAD 76
+#define ARCH_SYSCALL_PWRITE 77
+#define ARCH_SYSCALL_FLOCK 94
+#define ARCH_SYSCALL_WRITEV 97
+#define ARCH_SYSCALL_READV 98
+
+static inline int arch_signal_syscall_restartable(uint64_t number) {
+	switch (number) {
+		case ARCH_SYSCALL_OPENAT:
+		case ARCH_SYSCALL_READ:
+		case ARCH_SYSCALL_WRITE:
+		case ARCH_SYSCALL_WAITPID:
+		case ARCH_SYSCALL_IOCTL:
+		case ARCH_SYSCALL_SENDMSG:
+		case ARCH_SYSCALL_RECVMSG:
+		case ARCH_SYSCALL_ACCEPT:
+		case ARCH_SYSCALL_PREAD:
+		case ARCH_SYSCALL_PWRITE:
+		case ARCH_SYSCALL_FLOCK:
+		case ARCH_SYSCALL_WRITEV:
+		case ARCH_SYSCALL_READV:
+			return 1;
+		default:
+			return 0;
+	}
+}
+
+// make the thread execute the system call instruction again once it
+// returns to the context, with the original syscall number and arguments
+#define ARCH_SIGNAL_RESTART_SYSCALL(context, number, arg2) do { \
+		CTX_IP(context) -= ARCH_SIGNAL_SYSCALL_INSTRUCTION_SIZE; \
+		CTX_SYSCALL_NUMBER(context) = (number); \
+		CTX_ARG2(context) = (arg2); \
+	} while (0)
+
 #define ARCH_SIGNAL_GETFROMRETURN(x) 
 
 #define MCONTEXT_REG_R8 0

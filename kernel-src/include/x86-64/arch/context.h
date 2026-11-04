@@ -66,6 +66,7 @@ extern size_t arch_xsave_size;
 #define CTX_ARG0(x) (x)->rdi
 #define CTX_ARG1(x) (x)->rsi
 #define CTX_ARG2(x) (x)->rdx
+#define CTX_SYSCALL_NUMBER(x) (x)->rax
 
 #define ARCH_CONTEXT_RFLAGS_AC (1 << 18)
 
